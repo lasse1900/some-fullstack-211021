@@ -1,35 +1,23 @@
-export const setNotification = (content, time) => {
-  return async (dispatch) => {
-    dispatch({
-      type: 'SET_NOTIFICATION',
-      data: { message: content.message, type: content.type },
-    })
-    setTimeout(() => {
-      dispatch({
-        type: 'DELETE_NOTIFICATION',
-      })
-    }, time * 1000)
-  }
-}
-
-export const deleteNotification = () => {
-  return {
-    type: 'DELETE_NOTIFICATION',
-  }
-}
-
-const notificationReducer = (
-  state = { message: '', type: '' },
-  action
-) => {
+const reducer = (state = '', action) => {
   switch (action.type) {
-  case 'SET_NOTIFICATION':
+  case 'SET_NOTICE':
     return action.data
-  case 'DELETE_NOTIFICATION':
+  case 'SET_EMPTY':
     return ''
   default:
     return state
   }
 }
 
-export default notificationReducer
+export const setMessage = (message, timeout) => {
+  return async dispatch => {
+    await dispatch({ type: 'SET_NOTICE', data: message })
+
+    timeout = timeout * 1000
+    setTimeout(() => {
+      dispatch({ type: 'SET_EMPTY' })
+    }, timeout)
+  }
+}
+
+export default reducer

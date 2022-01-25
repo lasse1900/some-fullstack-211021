@@ -1,90 +1,72 @@
-import React, { useState } from 'react'
-import blogService from '../services/blogs'
+import React from 'react'
+import { connect } from 'react-redux'
+import Togglable from '../components/Togglable'
 import PropTypes from 'prop-types'
+import { useField } from '../hooks'
+import { createBlog } from '../reducers/blogReducer'
 
-const BlogForm = ({ blogs, setBlogs, notify }) => {
-  const [title, setTitle] = useState('')
-  const [author, setAuthor] = useState('')
-  const [url, setUrl] = useState('')
-  const [state, setState] = useState(false)
+const BlogForm = props => {
 
-  const addBlog = async (event) => {
+  const author = useField('author')
+  const title = useField('title')
+  const url = useField('url')
+
+  const handleBlogCreation = async event => {
+    event.preventDefault()
+    const blogObject = {
+      title: title.value,
+      author: author.value,
+      url: url.value
+    }
+
     try {
-      event.preventDefault()
-      let blogObject = {}
-      for (const input of event.target.querySelectorAll('input')) {
-        blogObject[input.name] = input.value
-      }
-
-      const blog = await blogService.create(blogObject)
-      setBlogs(blogs.concat(blog))
-      notify(`Added a new blog: ${blog.title}`, true)
-      setTitle('')
-      setAuthor('')
-      setUrl('')
-      setState(!state)
-    } catch (error) {
-      notify(`${error.response.data.error}`, false)
+      props.createBlog(blogObject)
+      title.reset()
+      author.reset()
+      url.reset()
+      props.notify(`a new blog '${blogObject.title}' successfully added`)
+    } catch (exception) {
+      props.notify(`${exception.response.data.error}`, true)
     }
   }
 
-  const toggle = () => {
-    setState(!state)
+  const omitReset = (hook) => {
+    // eslint-disable-next-line no-unused-vars
+    let { reset, ...hookWithoutReset } = hook
+    return hookWithoutReset
   }
 
   return (
-    <div>
-      <div style={{ display: state ? null : 'none' }}>
-        <form  id='addBlogform' onSubmit={(event) => addBlog(event)}>
-          <div>
-            title:
-            <input
-              id='title'
-              type='text'
-              name='title'
-              value={title}
-              onChange={({ target }) => setTitle(target.value)}
-            />
-          </div>
+    <Togglable buttonLabel='add'>
+      <div>
+        <form onSubmit={event => handleBlogCreation(event)}>
           <div>
             author:
-            <input
-              id='author'
-              type='text'
-              name='author'
-              value={author}
-              onChange={({ target }) => setAuthor(target.value)}
-            />
+            <input {...omitReset(author)} />
+          </div>
+          <div>
+            title:
+            <input {...omitReset(title)} />
           </div>
           <div>
             url:
-            <input
-              id='url'
-              type='text'
-              name='url'
-              value={url}
-              onChange={({ target }) => setUrl(target.value)}
-            />
+            <input {...omitReset(url)} />
           </div>
-          <br></br>
-          <button data-cy='submit-create' >create</button>
-          <br></br>
+          <button type='submit'>Add</button>
         </form>
       </div>
-      <button
-        onClick={toggle}
-        className={'toggle--button' + (state ? 'toggle--close' : '')}
-      >
-        {state ? 'cancel' : 'create new blog'}
-      </button>
-    </div>
+    </Togglable>
   )
 }
-
 BlogForm.propTypes = {
-  // blogs: PropTypes.array.isRequired,
-  setBlogs: PropTypes.func.isRequired,
-  // notify: PropTypes.func.isRequired,
+  blogs: PropTypes.array.isRequired,
+  notify: PropTypes.func.isRequired,
 }
 
-export default BlogForm
+const mapDispatchToProps = {
+  createBlog
+}
+
+const ConnectedBlogForm = connect(null, mapDispatchToProps)(BlogForm)
+
+export default ConnectedBlogForm

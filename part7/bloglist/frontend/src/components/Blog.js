@@ -1,92 +1,62 @@
 import React, { useState } from 'react'
-import blogService from '../services/blogs'
+import { connect } from 'react-redux'
+import '../index.css'
+import { likeBlog, removeBlog } from '../reducers/blogReducer'
 
-const Blog = ({ blog, removeBlog, user }) => {
-  const [hidden, setHidden] = useState(true)
+const Blog = ({ blog, user, notify, likeBlog, removeBlog }) => {
+  const [hidden, setVisible] = useState(false)
 
-  const blogOwner = () => {
-    let Boolean = false
-    try {
-      Boolean = blog.author === user.username
-      return Boolean
-    } catch (error) {
-      // console.log(error)
-      return
-    }
+  const blogOwner = blog.author === user.username
+  const buttonShow = { display: blogOwner ? '' : 'none' }
+
+  const toggleVisibility = () => {
+    setVisible(!hidden)
   }
 
-  const buttonShow = { display: blogOwner() ? '' : 'none' }
-
-  const blogStyle = {
-    paddingTop: 2,
-    paddingLeft: 2,
-    border: 'solid',
-    borderWidth: 1,
-    marginBottom: 2,
-  }
-
-  const toggle = () => {
-    setHidden(!hidden)
-  }
-
-  // const refreshPage = () => {
-  //   window.location.reload(false)
-  // }
-
-  const like = async () => {
-    blog.likes += 1
-    try {
-      await blogService.update(blog.id,blog)
-      // refreshPage()
-      toggle()
-    } catch (error) {
-      console.log('error', error)
-    }
+  if (!hidden) {
+    return (<div className='blogStyle' onClick={toggleVisibility}>
+      {blog.title} {blog.author}
+    </div>)
   }
 
   const remove = async () => {
     if (window.confirm(`remove blog ${blog.title}? by ${blog.author}`)) {
-      try {
-        removeBlog(blog)
-        await blogService.remove(blog.id)
-      } catch (error) {
-        console.log('error', error)
-      }
+      removeBlog(blog)
+      notify(`blog '${blog.title}' removed succesfully`, false)
     }
   }
 
-  if (!hidden) {
-    return (
-      <div style={blogStyle}>
-        <ul style={{ listStyle: 'none' }}>
-          <li className='title-value'>
-            {blog.title}{' '}
-            <button className="submit-toggleHide" onClick={() => toggle()}>hide</button>
-          </li>
-          <li>
-            <a style={{ display: 'table-cell' }} href={blog.url} target='_blank' rel='noreferrer'>{blog.url}</a>
-          </li>
-          likes: {blog.likes}{' '}
-          <button data-cy='like-submit' onClick={() => like()}>like</button>
-          <li>{blog.author}</li>
-          <button id='remove-button' style={buttonShow} onClick={remove}> remove</button>
-        </ul>
-      </div>
-    )
+  const like = async () => {
+    likeBlog(blog)
+    notify(`liked blog '${blog.title}'`, false)
   }
 
-  if (hidden) {
-    return (
-      <div style={blogStyle}>
-        <div style={{ listStyle: 'none' }}>
-          <li>
-            {blog.title} @{blog.author}{' '}
-            <button className='submit-toggleView' onClick={() => toggle()}>view</button>
-          </li>
-        </div>
+  return (
+    <div className='blogStyle'>
+      <div className='toggle' onClick={toggleVisibility}>
+        {blog.title}
+        <br />
+        <a href={blog.url}>{blog.url}</a><br></br>{blog.likes} - likes
+        <br /> <button onClick={like}>like</button>
+        <br /> added by {blog.author}
+        <br /> <button style={buttonShow} onClick={remove}>remove</button>
       </div>
-    )
+    </div>
+  )
+}
+
+const mapStateToProps = state => {
+  return {
+    user: state.user,
+    blogs: state.blogs
   }
 }
 
-export default Blog
+const mapDispatchToProps = {
+  likeBlog: likeBlog,
+  removeBlog: removeBlog
+}
+
+const ConnectedBlog = connect(mapStateToProps, mapDispatchToProps)(Blog)
+
+export default ConnectedBlog

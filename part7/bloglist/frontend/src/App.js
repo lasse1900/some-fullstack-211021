@@ -1,26 +1,33 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect } from 'react'
+import { connect } from 'react-redux'
 import Blog from './components/Blog'
 import BlogForm from './components/BlogForm'
 import blogService from './services/blogs'
-import loginService from './services/login'
 import Notification from './components/Notification'
-import Togglable from './components/Togglable'
 import LoginForm from './components/LoginForm'
-import { connect } from 'react-redux'
-import { setNotification } from './reducers/notificationReducer'
+import { useField } from './hooks'
+import { setMessage } from './reducers/notificationReducer'
+import { initializeBlogs, removeBlog } from './reducers/blogReducer'
+import { loginUser, setUser, logoutUser } from './reducers/userReducer'
 
-const App = (props) => {
-  const [blogs, setBlogs] = useState([])
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [user, setUser] = useState(null)
+const App = ({
+  user,
+  blogs,
+  initializeBlogs,
+  setMessage,
+  loginUser,
+  setUser,
+  logoutUser,
+}) => {
+  const username = useField('username')
+  const password = useField('password')
 
   useEffect(() => {
-    blogService.getAll().then((blogs) => setBlogs(blogs))
-  }, [])
+    initializeBlogs()
+  }, [initializeBlogs])
 
   useEffect(() => {
-    const loggedUserJSON = window.localStorage.getItem('loggedBlogappUser')
+    const loggedUserJSON = window.localStorage.getItem('loggedBlogAppUser')
     if (loggedUserJSON) {
       const user = JSON.parse(loggedUserJSON)
       setUser(user)
@@ -28,97 +35,91 @@ const App = (props) => {
     }
   }, [])
 
-  const notify = (message, type = 'success') => {
-    props.setNotification({ message: message, type: type }, 2)
+  const notify = (message, error) => {
+    setMessage({ message, error }, 4)
   }
 
   const handleLogin = async (event) => {
     event.preventDefault()
+
+    const credentials = {
+      username: username.value,
+      password: password.value
+    }
+
     try {
-      const user = await loginService.login({
-        username,
-        password,
-      })
-      window.localStorage.setItem('loggedBlogappUser', JSON.stringify(user))
-      setUser(user)
-      setUsername('')
-      setPassword('')
-      blogService.setToken(user.token)
+      const user = await loginUser(credentials)
+      username.reset()
+      password.reset()
+
+      notify(`${user.username} successfully logged in`)
     } catch (exception) {
-      console.log('käyttäjätunnus tai salasana virheellinen')
-      notify('käyttäjätunnus tai salasana virheellinen', 'error')
+      notify('wrong username or password', 'error')
     }
   }
 
-  const handleLogout = async () => {
-    window.localStorage.removeItem('loggedBlogappUser')
-    setUser(null)
+  const omitReset = (hook) => {
+    // eslint-disable-next-line no-unused-vars
+    let { reset, ...hookWithoutReset } = hook
+    return hookWithoutReset
   }
 
-  const loginForm = () => (
-    <Togglable buttonLabel='login'>
-      <LoginForm
-        username={username}
-        password={password}
-        handleUsernameChange={({ target }) => setUsername(target.value)}
-        handlePasswordChange={({ target }) => setPassword(target.value)}
-        handleSubmit={handleLogin}
-      />
-    </Togglable>
-  )
+  const handleLogout = () => {
+    window.localStorage.removeItem('loggedUser')
+    notify(`${user.username} successfully logged out`, false)
+    setUser(null)
+    logoutUser()
+  }
 
-  const removeBlog = (removedBlog) => {
-    const newBlogs = blogs.filter(blog => blog.id !== removedBlog.id)
-    setBlogs(newBlogs)
+  if (user === null) {
+    return (
+      <div>
+        <Notification />
+        <LoginForm className='loginform'
+          username={omitReset(username)}
+          password={omitReset(password)}
+
+          handleSubmit={handleLogin}
+        />
+      </div>
+    )
   }
 
   return (
     <div>
       <h2>Blogs</h2>
       <Notification />
-      {user === null ? (
-        loginForm()
-      ) : (
-        <div>
-          <div style={{ color: 'green', fontSize: '24px' }}>
-            Logged in as {user.name}{' '}
-            <button id='logout-button' onClick={() => handleLogout()}>logout</button>
-          </div>
-          <br></br>
-          <BlogForm
-            blogs={blogs}
-            setBlogs={setBlogs}
-            notify={notify}
-            user={user}
-          />
-        </div>
-      )}
-      <div>
-        <br></br>
-        {blogs
-          .sort((a, b) => b.likes - a.likes)
-          .map((blog) => (
-            <Blog
-              key={blog.id}
-              blog={blog}
-              user={user}
-              username={username}
-              removeBlog={removeBlog}
-            />
-          ))}
-      </div>
+      <p>{user.username} logged in</p>
+      <BlogForm
+        blogs={blogs}
+        notify={notify}
+      />
+      {blogs
+        .sort((a, b) => b.likes - a.likes)
+        .map(blog => (
+          <Blog key={blog.id} blog={blog} user={user} removeBlog={removeBlog} notify={notify}/>
+        ))}
+      <button onClick={handleLogout}>logout</button>
     </div>
   )
 }
 
-const mapStateToProps = (state) => {
-  console.log('state: ', state)
-
+const mapStateToProps = state => {
   return {
-    notification: state.notification,
+    blogs: state.blogs,
+    user: state.user
   }
 }
-const mapDispatchToProps = { setNotification }
+
+const mapDispatchToProps = {
+  initializeBlogs,
+  removeBlog,
+  setMessage,
+  loginUser,
+  setUser,
+  logoutUser
+}
 
 const ConnectedApp = connect(mapStateToProps, mapDispatchToProps)(App)
+
 export default ConnectedApp
